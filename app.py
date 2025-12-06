@@ -10,6 +10,7 @@ from tensorflow.keras.models import Model
 from sklearn.neighbors import NearestNeighbors
 from sklearn.neighbors import KNeighborsClassifier
 from PIL import Image
+import itertools # <--- Added for list filtering
 
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="AI Fashion Stylist", page_icon="👗", layout="wide")
@@ -22,29 +23,32 @@ elif os.path.exists("images_sample"):
 else:
     folder_path = "images_small"
 
-# --- LOAD DATA (WITH FIX) ---
+# --- LOAD DATA (WITH NAN FIX) ---
 @st.cache_resource
 def load_data():
     feature_list = pickle.load(open('features_embedding.pkl', 'rb'))
     filenames = pickle.load(open('filenames.pkl', 'rb'))
     df = pd.read_csv('my_fashion_data.csv')
     
-    # --- CRITICAL FIX: SYNC CSV WITH PICKLE ---
-    # The pickle file has ~50 items. The CSV has 2000+.
-    # We must trim and reorder the CSV to match the pickle file exactly.
-    
-    # 1. Ensure the 'image' column is the index for fast lookup
-    df['image'] = df.apply(lambda row: str(row['id']) + ".jpg", axis=1) # Recreate image names if needed
+    # 1. Prepare CSV index
+    df['image'] = df.apply(lambda row: str(row['id']) + ".jpg", axis=1)
     df = df.set_index('image')
     
-    # 2. Reindex the DataFrame to match the 'filenames' list exactly
-    # This keeps only the rows that exist in 'filenames' and puts them in the same order
+    # 2. Reindex to match the pickle filenames
+    # This might create NaN (empty) rows if a file isn't in the CSV
     df = df.reindex(filenames)
     
-    # 3. Reset index so we can use the 'image' column later
-    df = df.reset_index()
+    # 3. CRITICAL FIX: Identify and Drop Broken Rows
+    # check which rows have valid data (are not NaN)
+    valid_mask = df['subCategory'].notna()
     
-    # ------------------------------------------
+    # Filter the DF to keep only valid rows
+    df = df[valid_mask].reset_index()
+    
+    # Filter the Lists to match the valid rows exactly
+    # itertools.compress picks items from the list where the mask is True
+    feature_list = list(itertools.compress(feature_list, valid_mask))
+    filenames = list(itertools.compress(filenames, valid_mask))
     
     return feature_list, filenames, df
 
@@ -57,7 +61,7 @@ def load_model():
 # --- TRAIN CLASSIFIERS ---
 @st.cache_resource
 def train_classifiers(feature_list, df):
-    # Now that df is filtered, these lengths will match!
+    # Now that we cleaned the data, these fit() calls will not crash
     category_model = KNeighborsClassifier(n_neighbors=5)
     category_model.fit(feature_list, df['subCategory'])
     
@@ -141,7 +145,6 @@ if uploaded_file is not None:
         
         for filename in target_df['image']:
             try:
-                # Find index in the filtered dataframe
                 original_index = df[df['image'] == filename].index[0]
                 target_features.append(feature_list[original_index])
                 target_filenames.append(filename)
