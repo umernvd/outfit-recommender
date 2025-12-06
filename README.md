@@ -5,7 +5,7 @@
 [![Streamlit](https://img.shields.io/badge/Streamlit-Deployed-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
 [![Status](https://img.shields.io/badge/Status-MVP%20Complete-success)]()
 
-> **An end-to-end Machine Learning web app that acts as a personal stylist.** > Upload any clothing item, and the AI suggests complete outfit recommendations (e.g., input a *Shirt* $\rightarrow$ get matching *Pants*) using deep learning and compatibility logic.
+**An end-to-end Machine Learning web app that acts as a personal stylist.**  Upload any clothing item, and the AI suggests complete outfit recommendations (e.g., input a *Shirt* $\rightarrow$ get matching *Pants*) using deep learning and compatibility logic.
 
 ---
 
