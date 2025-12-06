@@ -137,7 +137,7 @@ if uploaded_file is not None:
         target_features = []
         target_filenames = []
         
-       for filename in target_df['image']:
+    for filename in target_df['image']:
             try:
                 original_index = df[df['image'] == filename].index[0]
                 target_features.append(feature_list[original_index])
