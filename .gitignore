@@ -1,0 +1,6 @@
+# Ignore the massive images folder
+images/
+
+# Ignore large system files
+__pycache__/
+*.pyc
