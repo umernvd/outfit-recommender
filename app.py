@@ -207,7 +207,7 @@ if uploaded_file is not None:
                 if i < len(indices[0]):
                     idx = indices[0][i]
                     img_name = target_filenames[idx]
-                    img_path = os.path.join("images", img_name)
+                    img_path = os.path.join("images_small", img_name)
                     with col:
                         st.image(img_path, use_container_width=True)
                         st.caption(f"{selected_gender} {target_category}")
