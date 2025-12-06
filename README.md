@@ -50,22 +50,25 @@ Beyond simple similarity search, this system features a **Compatibility Logic La
 
 ### 1. Clone the Repository
 ```bash
-git clone [https://github.com/YOUR_USERNAME/fashion-recommender-system.git](https://github.com/YOUR_USERNAME/fashion-recommender-system.git)
+git clone https://github.com/YOUR_USERNAME/fashion-recommender-system.git
 cd fashion-recommender-system
+```
 
 ### 2. Install Dependencies
 ```bash
 pip install -r requirements.txt
+```
 
-3. Run the App
-Bash
-
+### 3. Run the App
+```bash
 python -m streamlit run app.py
+```
 The app will open in your browser at http://localhost:8501.
 
-📂 Project Structure
-Plaintext
+---
 
+## 📂 Project Structure
+```
 fashion-recommender/
 │
 ├── app.py                   # Main Streamlit application logic
@@ -75,7 +78,11 @@ fashion-recommender/
 ├── images_small/            # Sample images for the demo
 ├── requirements.txt         # Dependencies
 └── README.md                # Project documentation
-🚧 Future Improvements (Roadmap)
+```
+
+---
+
+## 🚧 Future Improvements (Roadmap)
 While this MVP works well for demonstration, scaling to production would require:
 
 Vector Database: Migrating from in-memory KNN to FAISS or Pinecone for handling millions of items efficiently.
