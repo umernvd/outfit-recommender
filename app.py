@@ -14,6 +14,15 @@ from PIL import Image
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="AI Fashion Stylist", page_icon="👗", layout="wide")
 
+# --- SMART PATH SELECTION (Fix for Cloud vs Local) ---
+# We determine where the images are before we start
+if os.path.exists("images"):
+    folder_path = "images"  # Local mode (High Res)
+elif os.path.exists("images_sample"):
+    folder_path = "images_sample" # GitHub mode
+else:
+    folder_path = "images_small" # Fallback if you named it 'images_small'
+
 # --- LOAD DATA (CACHED) ---
 @st.cache_resource
 def load_data():
@@ -28,15 +37,12 @@ def load_model():
     model = ResNet50(weights='imagenet', include_top=False, input_shape=(224, 224, 3), pooling='avg')
     return model
 
-# --- TRAIN CLASSIFIERS (THE NEW MINI BRAINS) ---
+# --- TRAIN CLASSIFIERS ---
 @st.cache_resource
 def train_classifiers(feature_list, df):
-    # We train two small models instantly when the app loads
-    # Model 1: Guesses if it's Top/Bottom/Footwear
     category_model = KNeighborsClassifier(n_neighbors=5)
     category_model.fit(feature_list, df['subCategory'])
     
-    # Model 2: Guesses if it's Men/Women
     gender_model = KNeighborsClassifier(n_neighbors=5)
     gender_model.fit(feature_list, df['gender'])
     
@@ -54,60 +60,6 @@ def extract_features_from_upload(uploaded_file, model):
     expanded_img_array = np.expand_dims(img_array, axis=0)
     preprocessed_img = preprocess_input(expanded_img_array)
     return model.predict(preprocessed_img, verbose=0).flatten()
-
-# --- FUNCTION: RECOMMENDATION LOGIC ---
-def recommend(features, df, feature_list, category_classifier, gender_classifier):
-    # 1. PREDICT details about the uploaded image (The "Magic" Step)
-    # We reshape features to look like a list of 1 item
-    predicted_category = category_classifier.predict([features])[0]
-    predicted_gender = gender_classifier.predict([features])[0]
-    
-    st.write(f"🤖 **AI Analysis:** I think this is **{predicted_gender}'s {predicted_category}**.")
-    
-    # 2. Define Compatibility Rules (Shirt -> Pants)
-    compatibility_map = {
-        'Topwear': 'Bottomwear',
-        'Bottomwear': 'Topwear',
-        'Footwear': 'Topwear',
-        'Bags': 'Topwear'
-    }
-    
-    # If the rule exists, switch category. If not (e.g., Watches), stick to visual search
-    target_category = compatibility_map.get(predicted_category, predicted_category)
-    
-    # 3. Filter the Dataset
-    target_df = df[
-        (df['subCategory'] == target_category) & 
-        (df['gender'] == predicted_gender)
-    ].reset_index(drop=True)
-    
-    if len(target_df) == 0:
-        st.warning(f"No matching items found for {predicted_gender} {target_category}.")
-        return []
-
-    # 4. Get features for filtered items
-    target_features = []
-    target_filenames = []
-    
-    # Map back to original features (Simple loop for MVP)
-    # Note: In a pro app, you'd pre-calculate these indices to make it faster
-    for filename in target_df['image']:
-        try:
-            original_index = df[df['image'] == filename].index[0]
-            target_features.append(feature_list[original_index])
-            target_filenames.append(filename)
-        except:
-            pass
-            
-    if len(target_features) == 0:
-        return []
-
-    # 5. Find Neighbors
-    neighbors = NearestNeighbors(n_neighbors=5, algorithm='brute', metric='euclidean')
-    neighbors.fit(target_features)
-    distances, indices = neighbors.kneighbors([features])
-    
-    return [target_filenames[i] for i in indices[0]]
 
 # --- UI LAYOUT ---
 st.title("👗 AI Fashion Stylist")
@@ -132,11 +84,8 @@ if uploaded_file is not None:
             ai_category = category_classifier.predict([input_features])[0]
             ai_gender = gender_classifier.predict([input_features])[0]
         
-        # --- THE FIX: MANUAL OVERRIDE SECTION ---
+        # --- MANUAL OVERRIDE SECTION ---
         st.write("🤖 **AI Prediction:**")
-        
-        # We use the AI's prediction as the 'index' (default value) for the dropdowns
-        # This gives the user control to fix mistakes
         
         gender_options = ['Men', 'Women', 'Boys', 'Girls', 'Unisex']
         try:
@@ -161,30 +110,29 @@ if uploaded_file is not None:
             category_options, 
             index=default_cat_ix
         )
-        
-       
 
-    # --- RECOMMENDATION LOGIC (Updated to use SELECTED values) ---
+        # Move Logic Up so we can print the target category
+        compatibility_map = {
+            'Topwear': 'Bottomwear',
+            'Bottomwear': 'Topwear',
+            'Footwear': 'Topwear',
+            'Bags': 'Topwear'
+        }
+        target_category = compatibility_map.get(selected_category, selected_category)
+        
+        st.info(f"Searching for **{selected_gender}'s {target_category}** matches...")
+
+    # --- RECOMMENDATION LOGIC ---
     st.divider()
     st.subheader("2. Complete the Look")
     
-    # Define Rules (Shirt -> Pants)
-    compatibility_map = {
-        'Topwear': 'Bottomwear',
-        'Bottomwear': 'Topwear',
-        'Footwear': 'Topwear',
-        'Bags': 'Topwear'
-    }
-    target_category = compatibility_map.get(selected_category, selected_category)
-    
-    # Filter Dataset based on USER SELECTION (Not just AI guess)
+    # Filter Dataset based on USER SELECTION
     target_df = df[
         (df['subCategory'] == target_category) & 
         (df['gender'] == selected_gender)
     ].reset_index(drop=True)
     
     if len(target_df) > 0:
-        # ... (Insert your standard Nearest Neighbors logic here) ...
         # Get features for filtered items
         target_features = []
         target_filenames = []
@@ -193,28 +141,4 @@ if uploaded_file is not None:
             try:
                 original_index = df[df['image'] == filename].index[0]
                 target_features.append(feature_list[original_index])
-                target_filenames.append(filename)
-            except:
-                pass
-        
-        if len(target_features) > 0:
-            neighbors = NearestNeighbors(n_neighbors=5, algorithm='brute', metric='euclidean')
-            neighbors.fit(target_features)
-            distances, indices = neighbors.kneighbors([input_features])
-            
-            cols = st.columns(5)
-            for i, col in enumerate(cols):
-                if i < len(indices[0]):
-                    idx = indices[0][i]
-                    img_name = target_filenames[idx]
-                    img_path = os.path.join("images_small", img_name)
-                    with col:
-                        st.image(img_path, use_container_width=True)
-                        st.caption(f"{selected_gender} {target_category}")
-        else:
-            st.warning("No items found.")
-    else:
-        st.warning(f"No {selected_gender} {target_category} found in database!")
-
-else:
-    st.info("👈 Upload an image to start!")
+                target_filenames.append(
